@@ -79,6 +79,12 @@ def main(dataset_dir="dataset/train"):
         conn.commit()  # commit early for stability
 
         for img_file in os.listdir(person_path):
+            # Ignore .keep files (aka A_Example Person)
+            if img_file.startswith(".") or img_file.endswith(".keep"):
+              continue
+            # Images only
+            if not img_file.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tiff")):
+              continue
             img_path = os.path.join(person_path, img_file)
             img_hash = image_hash(img_path)
             

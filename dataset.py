@@ -1,3 +1,4 @@
+import argparse
 import os
 import cv2
 import psycopg2
@@ -61,12 +62,19 @@ def process_image(path, app):
         return None
     return faces[0].embedding
 
-def main(dataset_dir="dataset/train"):
+def load_existing_hashes(cur):
+    """Load all source_image → image_hash into memory for quick lookup."""
+    cur.execute("SELECT source_image, image_hash FROM face_embeddings;")
+    return {row[0]: row[1] for row in cur.fetchall()}
+
+def main(dataset_dir="dataset/train", rescan = False):
     # Prepare model and database
     app = FaceAnalysis(name='buffalo_l')
     app.prepare(ctx_id=0)
     conn = connect_db()
     cur = conn.cursor()
+    
+    cache = {} if rescan else load_existing_hashes(cur)
 
     for person_name in os.listdir(dataset_dir):
         person_path = os.path.join(dataset_dir, person_name)
@@ -79,22 +87,17 @@ def main(dataset_dir="dataset/train"):
         conn.commit()  # commit early for stability
 
         for img_file in os.listdir(person_path):
-            # Ignore .keep files (aka A_Example Person)
-            if img_file.startswith(".") or img_file.endswith(".keep"):
-              continue
-            # Images only
-            if not img_file.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tiff")):
+            # Ignore .keep files (aka A_Example Person) and allow images
+            if img_file.startswith(".") and not img_file.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tiff")):
               continue
             img_path = os.path.join(person_path, img_file)
-            img_hash = image_hash(img_path)
-            
             normalized_path = img_path.replace("\\", "/")
-
-            # Skip duplicates
-            if embedding_exists(cur, normalized_path, img_hash):
-                # print(f"⏩ Skipping already processed: {img_file}")
+            
+            # Skip if already processed and cached
+            if not rescan and normalized_path in cache:
                 continue
 
+            img_hash = image_hash(img_path)
             emb = process_image(normalized_path, app)
             if emb is not None:
                 insert_embedding(cur, person_id, emb, normalized_path, img_hash)
@@ -106,4 +109,8 @@ def main(dataset_dir="dataset/train"):
     print("\n🎉 Import completed successfully!")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", default="dataset/train", help="Path to dataset")
+    parser.add_argument("--rescan", action="store_true", help="Force rescan of all images")
+    args = parser.parse_args()
+    main(dataset_dir=args.dataset, rescan=args.rescan)

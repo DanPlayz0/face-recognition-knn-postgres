@@ -1,5 +1,6 @@
 import argparse
 import os
+import unicodedata
 import cv2
 import psycopg2
 import hashlib
@@ -77,6 +78,7 @@ def main(dataset_dir="dataset/train", rescan = False):
     cache = {} if rescan else load_existing_hashes(cur)
 
     for person_name in os.listdir(dataset_dir):
+        person_name = unicodedata.normalize("NFC", person_name)
         person_path = os.path.join(dataset_dir, person_name)
         if not os.path.isdir(person_path):
             continue

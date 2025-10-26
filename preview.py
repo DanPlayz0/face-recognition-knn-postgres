@@ -32,12 +32,11 @@ def preview(test_dir="dataset/test", threshold=0.70, step=0.01):
     """
     Preview images interactively.
     Arrow keys:
-        w  = increase threshold
-        s  = decrease threshold
-        a  = previous image
-        d  = next image
-        m  = move to (100,100)
-        Q  = quit
+        w/s  = increase/decrease threshold
+        a/d  = previous/next image
+        v    = toggle visual style
+        m    = move to (100,100)
+        Q    = quit
     """
     app = FaceAnalysis(name='buffalo_l')
     app.prepare(ctx_id=0)
@@ -47,6 +46,9 @@ def preview(test_dir="dataset/test", threshold=0.70, step=0.01):
 
     files = [f for f in os.listdir(test_dir) if os.path.isfile(os.path.join(test_dir, f))]
     idx = 0
+    
+    # Options
+    visual_style = 0 # 0 or 1 for different bounding box styles
 
     while 0 <= idx < len(files):
         file = files[idx]
@@ -76,9 +78,15 @@ def preview(test_dir="dataset/test", threshold=0.70, step=0.01):
             dist_str = f"{distance:.4f}" if distance is not None else "N/A"
             label = f"{name} ({dist_str})"
             color = (0, 255, 0) if name != "Unknown Unknown" else (0, 0, 255)
-            cv2.rectangle(img_draw, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color, 2)
-            cv2.putText(img_draw, label, (bbox[0], max(bbox[1]-10,0)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+            if visual_style == 0: # Simple Style:
+              cv2.rectangle(img_draw, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color, 2)
+              cv2.putText(img_draw, label, (bbox[0], max(bbox[1]-10,0)),
+                          cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+            elif visual_style == 1: # Block Style:
+              cv2.rectangle(img_draw, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color, 2)
+              cv2.rectangle(img_draw, (bbox[0], bbox[3] - 35), (bbox[2], bbox[3]), color, cv2.FILLED)
+              cv2.putText(img_draw, label, (bbox[0] + 6, bbox[3] - 10),
+                          cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
         max_dim = 1080
         h, w = img_draw.shape[:2]
@@ -103,6 +111,10 @@ def preview(test_dir="dataset/test", threshold=0.70, step=0.01):
             idx = max(0, idx - 1)
         elif key == ord('d'):  # Right
             idx += 1
+        elif key == ord('v'):  # Toggle visual style
+            visual_style = 1 - visual_style
+            style_name = "Block Style" if visual_style == 1 else "Simple Style"
+            print(f"🔄 Switched to {style_name}")
         elif key in (ord('q'), ord('Q')):
             break
 

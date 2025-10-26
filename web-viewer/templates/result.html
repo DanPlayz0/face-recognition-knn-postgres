@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Interactive Face Recognition Result</title>
+  <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css" />
+  <style>
+    .image-container {
+      position: relative;
+      display: inline-block;
+    }
+
+    .image-container img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+
+    .face-box {
+      position: absolute;
+      border: 2px solid rgba(255, 0, 0, 0.7);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .face-box:hover {
+      border-color: rgba(255, 0, 0, 0.7);
+      box-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+    }
+
+    .face-box.threshold-met {
+      border-color: rgba(0, 255, 0, 0.7);
+    }
+    .face-box.threshold-met:hover {
+      border-color: rgba(0, 255, 0, 0.7);
+      box-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+    }
+
+    .tooltip {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.75);
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.8em;
+      pointer-events: none;
+      white-space: nowrap;
+      transform: translate(-25%, -120%);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .face-box:hover .tooltip {
+      opacity: 1;
+    }
+
+    .back-btn {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      color: white;
+      padding: 8px 14px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      transition: background-color 0.2s, transform 0.2s;
+      z-index: 1000;
+    }
+    .back-btn:hover {
+      transform: scale(1.05);
+    }
+    .image-container {
+      margin-top: 70px;
+    }
+
+    #face-list {
+      list-style: none;
+      padding-left: 0;
+      margin-top: 0px;
+    }
+    #face-list li {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    #face-list img {
+      border: 2px solid #ddd;
+    }
+
+  </style>
+</head>
+<body>
+  <a href="/" class="back-btn">⬅ Back</a>
+
+  <div class="image-container" id="img-container">
+    <img id="main-image" src="{{ image }}" alt="Uploaded Image" width="600">
+  </div>
+
+  <h3 style="margin-top: 12px; margin-bottom: 6px;">Detected Faces</h3>
+  <ul id="face-list"></ul>
+
+  <script>
+    let imageLoaded = false;
+    let faces = [];
+    const img = document.getElementById('main-image');
+    const container = document.getElementById('img-container');
+
+    async function setup() {
+      faces = await fetch("{{ faces_json }}").then(response => response.json());
+      for (let face of faces) {
+        face.label = `${face.first_name || "Unknown"} ${face.last_name || "Unknown"} (Confidence: ${face.distance ? face.distance.toFixed(2) : "N/A"})`;
+      }
+
+      if (img.complete) {
+        createFaceBoxes(faces, img, container);
+        createFaceList(faces, img);
+      }
+      else img.addEventListener('load', () => {
+        createFaceBoxes(faces, img, container);
+        createFaceList(faces, img);
+      });
+    }
+    setup();
+
+    function createFaceBoxes(faces, img, container) {
+      const naturalWidth = img.naturalWidth;
+      const naturalHeight = img.naturalHeight;
+      const displayedWidth = img.clientWidth;
+      const displayedHeight = img.clientHeight;
+
+      const scaleX = displayedWidth / naturalWidth;
+      const scaleY = displayedHeight / naturalHeight;
+
+      faces.forEach(face => {
+        const [x1, y1, x2, y2] = face.bbox;
+        const box = document.createElement('div');
+        box.className = 'face-box' + (face.distance <= 0.7 ? ' threshold-met' : '');
+
+        // Scale coordinates to displayed image size
+        box.style.left = (x1 * scaleX) + 'px';
+        box.style.top = (y1 * scaleY) + 'px';
+        box.style.width = ((x2 - x1) * scaleX) + 'px';
+        box.style.height = ((y2 - y1) * scaleY) + 'px';
+
+        const tooltip = document.createElement('div');
+        tooltip.className = 'tooltip';
+        tooltip.textContent = face.label;
+
+        box.appendChild(tooltip);
+        container.appendChild(box);
+      });
+    }
+    function createFaceList(faces, img) {
+      const list = document.getElementById("face-list");
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      faces.forEach(face => {
+        const [x1, y1, x2, y2] = face.bbox;
+        const w = x2 - x1 + 60;
+        const h = y2 - y1 + 60;
+
+        // Set canvas size to face region
+        canvas.width = w;
+        canvas.height = h;
+        ctx.drawImage(img, x1-30, y1-30, w, h, 0, 0, w, h);
+
+        // Convert face crop to data URL
+        const dataURL = canvas.toDataURL();
+
+        // Create list item with thumbnail
+        const li = document.createElement("li");
+        const thumb = document.createElement("img");
+        thumb.src = dataURL;
+        thumb.alt = "Face thumbnail";
+        thumb.style.minWidth = "40px";
+        thumb.style.maxHeight = "80px";
+        // thumb.style.aspectRatio = "1 / 1";
+        thumb.style.objectFit = "cover";
+        thumb.style.borderRadius = "6px";
+        thumb.style.marginRight = "10px";
+        thumb.style.verticalAlign = "middle";
+
+        const label = document.createElement("span");
+        label.textContent = `${face.first_name || "Unknown"} ${face.last_name || "Unknown"} (Confidence: ${face.distance_str})`;
+        label.style.color = face.distance <= 0.7 ? "green" : "red";
+
+        li.appendChild(thumb);
+        li.appendChild(label);
+        list.appendChild(li);
+      });
+    }
+  </script>
+</body>
+</html>

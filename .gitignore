@@ -3,6 +3,9 @@
 !/dataset/test/.keep
 !/dataset/train/.keep
 
+# Ignore public uploads
+/web-viewer/static/**/*.*
+
 # Ignore Environment Variable
 .env*
 !.env.example

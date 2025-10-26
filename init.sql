@@ -7,7 +7,8 @@ CREATE TABLE persons (
     id SERIAL PRIMARY KEY,
     first_name TEXT NULL DEFAULT NULL,
     last_name TEXT NULL DEFAULT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    known_from TEXT,
 );
 
 CREATE TABLE face_embeddings (

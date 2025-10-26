@@ -73,13 +73,12 @@ def compute_faces(img, app, cur, threshold=0.70):
 def index():
     if request.method == "POST":
         file = request.files["image"]
-        visual_style = request.form.get("visual_style", "BLOCK").upper()
         if not file:
             return redirect(url_for("index"))
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
         file.save(filepath)
-        return redirect(url_for("result", filename=filename, style=visual_style))
+        return redirect(url_for("result", filename=filename))
 
     # ✅ List all uploaded images
     upload_folder = app.config["UPLOAD_FOLDER"]
